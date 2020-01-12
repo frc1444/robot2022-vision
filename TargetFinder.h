@@ -36,6 +36,8 @@ private:
 
     void TargetSectionsFromContours(const std::vector<std::vector<cv::Point>>&, std::vector<TargetSection>&, const cv::Size);
 
+    void TargetSectionsFromContoursFast(const std::vector<std::vector<cv::Point>>&, std::vector<TargetSection>&, const cv::Size);
+
     void SortTargetSections(const std::vector<TargetSection>&, std::vector<Target>&);
 
     void RefineTargetCorners(std::vector<Target>&, const cv::Mat&);

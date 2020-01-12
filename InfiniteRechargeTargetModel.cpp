@@ -5,6 +5,7 @@ using namespace Lightning;
 InfiniteRechargeTargetModel::InfiniteRechargeTargetModel() : TargetModel()
 {
     _keyPoints = std::vector<cv::Point3d> {
+        {498.475, 0, 0},
         {0, 0, 0},
         {58.6486, 0, 0},
         {938.3014, 0, 0},
@@ -31,11 +32,13 @@ std::vector<cv::Point3d> InfiniteRechargeTargetModel::GetSubTargetKeyPoints(int 
 
     if (subTarget == 0)
     {
+        // For 2020 this returns the boundingbox corners of the target + center
         keyPoints = std::vector<cv::Point3d> {
+            {498.475, 0, 0},
             {0, 0, 0},
             {996.95, 0, 0},
-            {249.047, 431.8, 0},
-            {747.903, 431.8, 0} 
+            {0, 431.8, 0},
+            {996.95, 431.8, 0} 
         };
     }
 

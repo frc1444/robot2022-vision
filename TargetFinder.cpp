@@ -118,7 +118,7 @@ bool TargetFinder::Process(cv::Mat& image, std::vector<VisionData>& data)
     // Find target sections
     std::vector<TargetSection> targetSections;
 
-    TargetSectionsFromContours(approx, targetSections, cv::Size(image.cols, image.rows));
+    TargetSectionsFromContoursFast(approx, targetSections, cv::Size(image.cols, image.rows));
 
     // Create targets from sections
     std::vector<Target> targets;
@@ -180,9 +180,9 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
                 rect.center.x > Setup::Camera::Width - imageEdgeThreshold || 
                 rect.center.y < imageEdgeThreshold ||
                 rect.center.y > Setup::Camera::Height - imageEdgeThreshold)
-                {
-                    continue;
-                }
+            {
+                continue;
+            }
 
             // Save corner points
             std::vector<cv::Point2f> points(4);
@@ -210,39 +210,9 @@ void TargetFinder::SortTargetSections(const std::vector<TargetSection>& sections
 
     for (int i = 0; i < (int)sections.size(); ++i)
     {
-        bool matchFound = false;
-        for (int j = i + 1; j < (int)sections.size(); ++j)
-        {
-            // TODO this needs work
-            double angleDiff = std::abs(sections[i].rect.angle - sections[j].rect.angle);
-            double centerDiff = Distance(sections[i].center, sections[j].center);
-
-            // Adjust target separation threshold based on target size which correlates to distance
-            double targetSeparationThreshold = sections[i].area * Setup::Processing::TargetSeparationThreshold + 77;    // TODO tune
-
-            if (angleDiff > Setup::Processing::MinAngleDiff && angleDiff < Setup::Processing::MaxAngleDiff && centerDiff < targetSeparationThreshold)
-            {
-                Target newTarget;
-
-                newTarget.sections.push_back(sections[i]);
-                newTarget.sections.push_back(sections[j]);
-
-                std::sort(newTarget.sections.begin(), newTarget.sections.end(), [](TargetSection& s1, TargetSection& s2){ return (s1.center.x < s2.center.x);});
-
-                targets.push_back(newTarget);
-
-                i = j;
-                matchFound = true;
-                break;
-            }
-        }
-
-        if (!matchFound)
-        {
-            Target newTarget;
-            newTarget.sections.push_back(sections[i]);
-            targets.push_back(newTarget);
-        }
+        Target newTarget;
+        newTarget.sections.push_back(sections[i]);
+        targets.push_back(newTarget);
     }
 }
 
@@ -290,51 +260,23 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         // Set image points
         std::vector<cv::Point2d> imagePoints;
 
-        if (target.sections.size() == 2)
+        if (target.sections.size() == 1)
         {
             keyPoints = _targetModel->GetKeyPoints();
 
             imagePoints = std::vector<cv::Point2d>
             {
                 target.center,
-                target.sections[0].corners[2],
-                target.sections[1].corners[2],
-                target.sections[0].corners[3],
-                target.sections[1].corners[1],
-                target.sections[0].corners[1],
-                target.sections[1].corners[3],
                 target.sections[0].corners[0],
-                target.sections[1].corners[0]
+                target.sections[0].corners[1],
+                target.sections[0].corners[2],
+                target.sections[0].corners[3],
+                target.sections[0].corners[4],
+                target.sections[0].corners[5],
+                target.sections[0].corners[6],
+                target.sections[0].corners[7]
+
             };
-        }
-        else if (target.sections.size() == 1 && Setup::Processing::ProcessHalfTargets)
-        {
-            // Use the appropriate half of the target - do not use the center point of the target
-            if (target.sections[0].rect.angle < 90)
-            {
-                keyPoints = _targetModel->GetSubTargetKeyPoints(0);
-
-                imagePoints = std::vector<cv::Point2d>
-                {
-                    target.sections[0].corners[2],
-                    target.sections[0].corners[3],
-                    target.sections[0].corners[1],
-                    target.sections[0].corners[0]
-                };
-            }
-            else
-            {
-                keyPoints = _targetModel->GetSubTargetKeyPoints(1);                
-
-                imagePoints = std::vector<cv::Point2d>
-                {
-                    target.sections[0].corners[2],
-                    target.sections[0].corners[1],
-                    target.sections[0].corners[3],
-                    target.sections[0].corners[0]
-                };
-            }
-            
         }
         else
         {
@@ -479,11 +421,6 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
     cv::RNG rng(12345);
     for (int target = 0; target < (int)targets.size(); ++target)
     {            
-        if (targets[target].sections.size() == 1 && !Setup::Processing::ProcessHalfTargets)
-        {
-            continue;
-        }
-
         cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 
         // Project target points back onto image
@@ -504,6 +441,7 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         std::vector<cv::Point2d> projectedPoints;
         cv::projectPoints(_targetModel->GetKeyPoints(), rvec, tvec, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), projectedPoints);       
 
+        //for (auto& pt : targets[target].sections[0].corners)
         for (auto& pt : projectedPoints)
         {
             cv::circle(image, pt, 3, color, 1, cv::LINE_AA);
@@ -559,7 +497,8 @@ Old corner detection using FAST - still works, but minarearect version seems to 
 This has the advantage of finding true corners of the target and not relying on the subpixel finder to "narrow in" on the corners
 The corners from the minarearect version will be skewed when the camera is at an extreme perspective - the sublpixel finder handles this OK for now
 
-void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::Point>>& contours, std::vector<TargetSection>& sections, const cv::Size size)
+*/
+void TargetFinder::TargetSectionsFromContoursFast(const std::vector<std::vector<cv::Point>>& contours, std::vector<TargetSection>& sections, const cv::Size size)
 {
     sections.clear();
 
@@ -611,8 +550,8 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
             std::vector<int> labels;
             int numLabels = cv::partition(keyPoints, labels, [this](cv::KeyPoint p1, cv::KeyPoint p2){ return (Distance(p1.pt, p2.pt) < Setup::Processing::CornerDistanceThreshold); });
 
-            if (numLabels == 4) // TODO define number of corners?
-            {
+            //if (numLabels == 4) // TODO define number of corners?
+            //{
                 std::vector<cv::Point2f> combinedPoints(numLabels);
 
                 cv::Point2f center(0, 0);
@@ -648,8 +587,7 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
                 TargetSection section { combinedPoints, rect, shapeFactor, center, area };
 
                 sections.push_back(section);
-            }
+            //}
         }
     }
 }
-*/

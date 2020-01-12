@@ -14,48 +14,49 @@ InfiniteRechargeVision::InfiniteRechargeVision(std::vector<spdlog::sink_ptr> sin
     _logger = std::make_shared<spdlog::logger>("InfiniteRechargeVision", sinks.begin(), sinks.end());
     _logger->set_level(Lightning::Setup::Diagnostics::LogLevel);
 
-    // Setup hatch capture
+    // Setup capture
     if (Setup::Camera::CameraId >= 0)
     {    
         if (Setup::Diagnostics::UseTestVideo)
         {
             _targetCapture = std::make_shared<cv::VideoCapture>(Setup::Diagnostics::TestVideoPath);
-            _logger->info("Hatch capture set to video: {0}", Setup::Diagnostics::TestVideoPath);
+            _logger->info("Capture set to video: {0}", Setup::Diagnostics::TestVideoPath);
         }
         else if (Setup::Diagnostics::UseTestImage)
         {
             _targetCapture = std::make_shared<cv::VideoCapture>(Setup::Diagnostics::TestImagePath);
-            _logger->info("Hatch capture set to image(s): {0}", Setup::Diagnostics::TestImagePath);
+            _logger->info("Capture set to image(s): {0}", Setup::Diagnostics::TestImagePath);
         }
         else
         {
             _targetCapture = std::make_shared<cv::VideoCapture>(Setup::Camera::CameraId);
-            _logger->info("Hatch capture set to camera ID: {0}", Setup::Camera::CameraId);
+            _logger->info("Capture set to camera ID: {0}", Setup::Camera::CameraId);
         }
         
     }
     else
     {
-        _logger->info("Hatch capture will not be used");
+        _logger->info("Capture will not be used");
     }
 
-    // Setup hatch processor
+    // Setup processor
     if (_targetCapture)
     {
         if (_targetCapture->isOpened())
         {
+            // TODO remove this
             cv::Vec3d offset(Setup::Processing::HatchOffset, 0, 0);
 
-            _targetProcessor = std::make_unique<InfiniteRechargeProcessor>(sinks, "Hatch", _targetCapture, offset);  
+            _targetProcessor = std::make_unique<InfiniteRechargeProcessor>(sinks, "Main", _targetCapture, offset);  
         }
         else
         {           
-            _logger->error("Failed to open hatch capture.");          
+            _logger->error("Failed to open capture.");          
         }
     }
     else
     {
-        _logger->info("Hatch processor will not be used");
+        _logger->info("Processor will not be used");
     }  
 
     _dataSender = std::make_unique<DataSender>();
