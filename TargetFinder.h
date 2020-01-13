@@ -46,7 +46,7 @@ private:
 
     double Distance(const cv::Point2d&, const cv::Point2d&);
 
-    bool ClockwiseSort(const cv::Point2f&, const cv::Point2f&, const cv::Point2f&);
+    cv::Point2f CornerSort(std::vector<cv::Point2f>&);
 
     cv::Vec3d EulerAnglesFromRotationMaxtrix(const cv::Mat&);
 
