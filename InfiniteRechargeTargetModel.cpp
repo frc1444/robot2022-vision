@@ -37,8 +37,8 @@ std::vector<cv::Point3d> InfiniteRechargeTargetModel::GetSubTargetKeyPoints(int 
             {498.475, 0, 0},
             {0, 0, 0},
             {996.95, 0, 0},
-            {0, 431.8, 0},
-            {996.95, 431.8, 0} 
+            {249.047, 431.8, 0},
+            {747.903, 431.8, 0} 
         };
     }
 

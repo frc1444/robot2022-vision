@@ -40,7 +40,7 @@ bool TargetFinder::FindContours(const cv::Mat& image, std::vector<std::vector<cv
     // Find contours
     std::vector<cv::Vec4i> hierarchy;
 
-    cv::findContours(image, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    cv::findContours(image, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     // Filter out small contours
     std::vector<std::vector<cv::Point>>::iterator itc = contours.begin();
@@ -79,7 +79,13 @@ void TargetFinder::ApproximateContours(const std::vector<std::vector<cv::Point>>
 
     for (int i = 0; i < contours.size(); ++i)
     {
-        cv::approxPolyDP(contours[i], approximation[i], Setup::Processing::ContourApproximationAccuracy, true);
+        std::vector<cv::Point> hull;
+
+        cv::convexHull(contours[i], hull);
+
+        cv::approxPolyDP(hull, approximation[i], Setup::Processing::ContourApproximationAccuracy, true);
+
+        _logger->trace("Contour {0} approxPoly Points: {1}", i, approximation[i].size());
 
         if (Setup::Diagnostics::DisplayDebugImages)
         {
@@ -161,10 +167,19 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
     // Evaluate each contour to see if it is a target section
     for (int i = 0; i < (int)contours.size(); ++i)
     {       
+        _logger->trace("Contour {0} Size {1}", i, contours[i].size());
+
+        if (contours[i].size() != 4)
+        {
+            continue;
+        }
+
         double area = cv::contourArea(contours[i], false);  
         double perimeter = cv::arcLength(contours[i], true);
 
         double shapeFactor = (4 * CV_PI * area) / std::pow(perimeter, 2);
+
+        _logger->trace("Contour {0} Shape Factor {1}", i, shapeFactor);
 
         if (shapeFactor > Setup::Processing::ShapeFactorMin && shapeFactor < Setup::Processing::ShapeFactorMax)
         {
@@ -186,7 +201,11 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
 
             // Save corner points
             std::vector<cv::Point2f> points(4);
-            rect.points(points.data());
+
+            for (int j = 0; j < contours[i].size(); ++j)
+            {
+                points[j] = cv::Point2f(contours[i][j].x, contours[i][j].y);
+            }
 
             if (rect.size.width < rect.size.height)
             {
@@ -240,11 +259,11 @@ void TargetFinder::RefineTargetCorners(std::vector<Target>& targets, const cv::M
                 continue;
             }
 
-            target.center += section.corners[1];
-            target.center += section.corners[2];
-
-            //std::sort(section.corners.begin(), section.corners.end(), [this, c = target.center](cv::Point2f p1, cv::Point2f p2){ return this->CornerSort(c, p1, p2); });
+            std::sort(section.corners.begin(), section.corners.end(), [this](cv::Point2f p1, cv::Point2f p2){ return (p1.x + 1000*p1.y) < (p2.x + 1000*p2.y); });
             
+            target.center += section.corners[0];
+            target.center += section.corners[1];
+
         }
 
         target.center /= 2;
@@ -268,9 +287,9 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
             imagePoints = std::vector<cv::Point2d>
             {
                 target.center,
+                target.sections[0].corners[0],
                 target.sections[0].corners[1],
                 target.sections[0].corners[2],
-                target.sections[0].corners[0],
                 target.sections[0].corners[3]
             };
         }
@@ -367,7 +386,7 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         {
             target.theta = -(theta + 180);
         }
-        target.robotDistance = (std::sqrt(std::pow(target.data.x, 2) + std::pow(target.data.z, 2)) / 25.4);
+        target.robotDistance = (std::sqrt(std::pow(target.data.x, 2) + std::pow(target.data.z, 2)));
     }
 
 }
@@ -414,7 +433,7 @@ cv::Vec3d TargetFinder::EulerAnglesFromRotationMaxtrix(const cv::Mat& R)
 
 void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& targets)
 {
-    cv::RNG rng(12345);
+    cv::RNG rng(123);
     for (int target = 0; target < (int)targets.size(); ++target)
     {            
         cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
@@ -437,16 +456,21 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         std::vector<cv::Point2d> projectedPoints;
         cv::projectPoints(_targetModel->GetSubTargetKeyPoints(0), rvec, tvec, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), projectedPoints);       
 
-        cv::circle(image, targets[target].center, 3, color, 1, cv::LINE_AA);
+        cv::circle(image, targets[target].center, 4, color, 1, cv::LINE_AA);
         for (auto& pt : targets[target].sections[0].corners)
         {
-            cv::circle(image, pt, 3, color, 1, cv::LINE_AA);
+            cv::circle(image, pt, 4, color, 1, cv::LINE_AA);
         }
 
         for (auto& pt : projectedPoints)
         {
-            cv::circle(image, pt, 3, color, cv::FILLED, cv::LINE_AA);
+            //cv::circle(image, pt, 3, color, cv::FILLED, cv::LINE_AA);
         }
+
+            cv::circle(image, projectedPoints[0], 3, color, cv::FILLED, cv::LINE_AA);
+            cv::circle(image, projectedPoints[2], 3, color, cv::FILLED, cv::LINE_AA);
+
+
 
         // Show target section bounding boxes
         for (auto section : targets[target].sections)
@@ -466,7 +490,7 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
 
             for( int j = 0; j < 4; j++ )
             {
-                //cv::line( image, vertices[j], vertices[(j+1)%4], color, 1, cv::LINE_AA );
+                ///cv::line( image, vertices[j], vertices[(j+1)%4], color, 1, cv::LINE_AA );
             }
         }
 
@@ -483,7 +507,7 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         imageText.push_back(fmt::format("Yaw: {:03.1f}", targets[target].data.yaw));
 
         imageText.push_back(fmt::format("Theta: {:03.1f}", targets[target].theta));
-        imageText.push_back(fmt::format("rDist: {:03.1f}", targets[target].robotDistance));
+        imageText.push_back(fmt::format("rDist: {:03.1f}", targets[target].robotDistance / 25.4));
 
         for (int i = 0; i < (int)imageText.size(); ++i)
         {
@@ -592,100 +616,3 @@ void TargetFinder::TargetSectionsFromContoursFast(const std::vector<std::vector<
         }
     }
 }
-
-cv::Point2f TargetFinder::CornerSort(std::vector<cv::Point2f>& corners)
-{
-    // Average of all corner points (the center of the vision tape)
-    cv::Point2f cornerCenter;
-
-    for (auto& corner : corners)
-    {
-        cornerCenter += corner;
-    }
-
-    cornerCenter /= (int)corners.size();
-
-    std::vector<cv::Point2f> sortedCorners;
-
-    for (int i = 0; i < (int)corners.size(); ++i)
-    {
-        sortedCorners.push_back(cv::Point2f(10000,10000));
-    }
-
-    for (auto& corner : corners)
-    {
-        if (corner.y < cornerCenter.y)
-        {
-            if (corner.x < cornerCenter.x)
-            {
-                if (corner.x < sortedCorners[0].x)
-                {
-                    sortedCorners[1] = sortedCorners[0];
-                    sortedCorners[0] = corner;
-                }
-                else
-                {
-                    sortedCorners[1] = corner;
-                }
-                
-            }
-            else
-            {
-                if (corner.x < sortedCorners[2].x)
-                {
-                    sortedCorners[3] = sortedCorners[2];
-                    sortedCorners[2] = corner;
-                }
-                else
-                {
-                    sortedCorners[3] = corner;
-                }
-            }
-        }
-        else
-        {
-            if (corner.x < cornerCenter.x)
-            {
-                if (corner.y < sortedCorners[4].y)
-                {
-                    sortedCorners[6] = sortedCorners[4];
-                    sortedCorners[4] = corner;
-                }
-                else
-                {
-                    sortedCorners[6] = corner;
-                }
-                
-            }
-            else
-            {
-                if (corner.y < sortedCorners[5].y)
-                {
-                    sortedCorners[7] = sortedCorners[5];
-                    sortedCorners[5] = corner;
-                }
-                else
-                {
-                    sortedCorners[7] = corner;
-                }
-            }
-        }        
-    }
-
-
-    // Actual center of target (where robot should aim)
-    cv::Point2f targetCenter = cv::Point2f(0,0);
-
-    for (int i = 0; i < 4; ++i)
-    {
-        targetCenter += sortedCorners[i];
-    }
-
-    targetCenter /= 4;
-
-    corners = sortedCorners;
-
-    return targetCenter;
-    
-}
-
