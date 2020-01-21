@@ -45,11 +45,11 @@ public:
         _cameraMatrix.at<double>(2,1) = 0;
         _cameraMatrix.at<double>(2,2) = 1;
 
-        _distanceCoefficients.at<double>(0,0) = -3.5326210117989726e-02;
-        _distanceCoefficients.at<double>(1,0) = -1.1750649659599417e+00;
+        _distanceCoefficients.at<double>(0,0) = 2.0054776400722535e-01;
+        _distanceCoefficients.at<double>(1,0) = -2.6613601317616151e+00;
         _distanceCoefficients.at<double>(2,0) = 0;
         _distanceCoefficients.at<double>(3,0) = 0;
-        _distanceCoefficients.at<double>(4,0) = 1.3380806380359025e+00;
+        _distanceCoefficients.at<double>(4,0) = 8.9227221657839131e+00;
     }
 };
 }

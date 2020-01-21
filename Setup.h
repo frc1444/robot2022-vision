@@ -9,7 +9,7 @@ namespace Lightning
 
 namespace Setup
 {
-    const static std::string LogPath = "DeepSpaceVision.log";
+    const static std::string LogPath = "InfiniteRechargeVision.log";
     const static std::string SetupPath = "setup.ini";
 
     void LoadSetup();
@@ -83,20 +83,8 @@ namespace Setup
         // Maximum threshold for shape factor filter
         extern double ShapeFactorMax;
 
-        // Threshold for FAST corner detector
-        extern int FastThreshold;
-
         // Distance threshold for close corner points
         extern int CornerDistanceThreshold;
-
-        // Minimum angle difference between target sections in degrees
-        extern double MinAngleDiff;
-
-        // Maximum angle difference between target sections in degrees
-        extern double MaxAngleDiff;
-
-        // Maximum separation of target sections - larger number allows larger target separation
-        extern double TargetSeparationThreshold;
 
         // Number of iterations for corner subpixel calculation
         extern int MaxCornerSubPixelIterations;
@@ -108,16 +96,16 @@ namespace Setup
         extern bool UseWorldCoordinates;
 
         // X Offset for hatch camera in millimeters
-        extern double HatchOffset;
+        extern double XOffset;
 
-        // X Offset for cargo camera in millimeters
-        extern double CargoOffset;
+        // Y Offset for hatch camera in millimeters
+        extern double YOffset;
+
+        // Z Offset for hatch camera in millimeters
+        extern double ZOffset;
 
         // Distance from edge of image before contour is rejected
         extern double ImageEdgeThreshold;
-
-        // Flag to allow processing of half targets
-        extern bool ProcessHalfTargets;
     }
     
     namespace HSVFilter

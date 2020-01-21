@@ -45,7 +45,7 @@ InfiniteRechargeVision::InfiniteRechargeVision(std::vector<spdlog::sink_ptr> sin
         if (_targetCapture->isOpened())
         {
             // TODO remove this
-            cv::Vec3d offset(Setup::Processing::HatchOffset, 0, 0);
+            cv::Vec3d offset(Setup::Processing::XOffset, Setup::Processing::YOffset, Setup::Processing::ZOffset);
 
             _targetProcessor = std::make_unique<InfiniteRechargeProcessor>(sinks, "Main", _targetCapture, offset);  
         }

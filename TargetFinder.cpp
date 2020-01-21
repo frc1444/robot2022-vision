@@ -16,6 +16,71 @@ TargetFinder::TargetFinder(std::vector<spdlog::sink_ptr> sinks, std::string name
     _logger->set_level(Lightning::Setup::Diagnostics::LogLevel);
 }
 
+bool TargetFinder::Process(cv::Mat& image, std::vector<VisionData>& data)
+{
+    // Convert image to HSV and gray
+    cv::Mat hsvImage, grayImage;
+    ConvertImage(image, hsvImage, grayImage);
+
+    // Filter based on color
+    cv::Mat rangedImage;
+
+    FilterOnColor(hsvImage, rangedImage, cv::Scalar(Setup::HSVFilter::LowH, Setup::HSVFilter::LowS, Setup::HSVFilter::LowV), cv::Scalar(Setup::HSVFilter::HighH, Setup::HSVFilter::HighS, Setup::HSVFilter::HighV), Setup::HSVFilter::MorphologyIterations);
+
+    // Detect contours
+    std::vector<std::vector<cv::Point>> contours;
+
+    if (!FindContours(rangedImage, contours))
+    {
+        // No contours, so nothing to process
+        return false;
+    }
+
+    // Approximate contours
+    std::vector<std::vector<cv::Point>> approx(contours.size());
+    cv::Mat contourImage = cv::Mat(image.size(), CV_8UC1);
+
+    ApproximateContours(contours, approx, contourImage);
+
+    // Find target sections
+    std::vector<TargetSection> targetSections;
+
+    TargetSectionsFromContours(approx, targetSections, cv::Size(image.cols, image.rows));
+
+    // Create targets from sections
+    std::vector<Target> targets;
+
+    SortTargetSections(targetSections, targets);
+
+    // Get subpixel measurement on target corners
+    RefineTargetCorners(targets, grayImage);
+
+    // Find the camera to target tranform
+    FindTargetTransforms(targets, cv::Size(image.cols, image.rows));
+
+    // Sort targets by horizontal position in image
+    std::sort(targets.begin(), targets.end(), [](Target t1, Target t2){ return (t1.data.imageX < t2.data.imageX); });
+
+    // Add targets to data packet - TODO this could be cleaner - redo VisionPacket?
+    for (int i = 0; i < (int)targets.size(); ++i)
+    {
+        targets[i].data.targetId = i;
+
+        data.push_back(targets[i].data);
+    }
+
+    if (Setup::Diagnostics::DisplayDebugImages)
+    {
+        DrawDebugImage(image, targets);
+
+        _debugImages.clear();
+        _debugImages.push_back(std::make_pair("Raw", image));
+        _debugImages.push_back(std::make_pair("Contours", contourImage));
+    }
+
+    return true;
+}
+
 void TargetFinder::ConvertImage(const cv::Mat& image, cv::Mat& hsv, cv::Mat& gray)
 {
     // Convert image to HSV and gray
@@ -95,71 +160,6 @@ void TargetFinder::ApproximateContours(const std::vector<std::vector<cv::Point>>
 
 }
 
-bool TargetFinder::Process(cv::Mat& image, std::vector<VisionData>& data)
-{
-    // Convert image to HSV and gray
-    cv::Mat hsvImage, grayImage;
-    ConvertImage(image, hsvImage, grayImage);
-
-    // Filter based on color
-    cv::Mat rangedImage;
-
-    FilterOnColor(hsvImage, rangedImage, cv::Scalar(Setup::HSVFilter::LowH, Setup::HSVFilter::LowS, Setup::HSVFilter::LowV), cv::Scalar(Setup::HSVFilter::HighH, Setup::HSVFilter::HighS, Setup::HSVFilter::HighV), Setup::HSVFilter::MorphologyIterations);
-
-    // Detect contours
-    std::vector<std::vector<cv::Point>> contours;
-
-    if (!FindContours(rangedImage, contours))
-    {
-        // No contours, so nothing to process
-        return false;
-    }
-
-    // Approximate contours
-    std::vector<std::vector<cv::Point>> approx(contours.size());
-    cv::Mat contourImage = cv::Mat(image.size(), CV_8UC1);
-
-    ApproximateContours(contours, approx, contourImage);
-
-    // Find target sections
-    std::vector<TargetSection> targetSections;
-
-    TargetSectionsFromContours(approx, targetSections, cv::Size(image.cols, image.rows));
-
-    // Create targets from sections
-    std::vector<Target> targets;
-
-    SortTargetSections(targetSections, targets);
-
-    // Get subpixel measurement on target corners
-    RefineTargetCorners(targets, grayImage);
-
-    // Find the camera to target tranform
-    FindTargetTransforms(targets, cv::Size(image.cols, image.rows));
-
-    // Sort targets by horizontal position in image
-    std::sort(targets.begin(), targets.end(), [](Target t1, Target t2){ return (t1.data.imageX < t2.data.imageX); });
-
-    // Add targets to data packet - TODO this could be cleaner - redo VisionPacket?
-    for (int i = 0; i < (int)targets.size(); ++i)
-    {
-        targets[i].data.targetId = i;
-
-        data.push_back(targets[i].data);
-    }
-
-    if (Setup::Diagnostics::DisplayDebugImages)
-    {
-        DrawDebugImage(image, targets);
-
-        _debugImages.clear();
-        _debugImages.push_back(std::make_pair("Raw", image));
-        _debugImages.push_back(std::make_pair("Contours", contourImage));
-    }
-
-    return true;
-}
-
 void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::Point>>& contours, std::vector<TargetSection>& sections, const cv::Size size)
 {
     sections.clear();
@@ -185,7 +185,6 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
         {
             // Get bounding box and angle
             auto rect = cv::minAreaRect(contours[i]);
-
 
             // Reject contour if it is too close to the edge of the image
 
@@ -259,8 +258,36 @@ void TargetFinder::RefineTargetCorners(std::vector<Target>& targets, const cv::M
                 continue;
             }
 
-            std::sort(section.corners.begin(), section.corners.end(), [this](cv::Point2f p1, cv::Point2f p2){ return (p1.x + 1000*p1.y) < (p2.x + 1000*p2.y); });
-            
+            std::vector<cv::Point2f> corners(4);
+
+            for (int j = 0; j < 4; ++j)
+            {
+                if (section.corners[j].x < section.center.x)
+                {
+                    if (section.corners[j].y < section.center.y)
+                    {
+                        corners[1] = section.corners[j];
+                    }
+                    else
+                    {                        
+                        corners[3] = section.corners[j];
+                    }
+                }
+                else
+                {
+                    if (section.corners[j].y < section.center.y)
+                    {
+                        corners[0] = section.corners[j];
+                    }
+                    else
+                    {
+                        corners[2] = section.corners[j];
+                    }
+                }
+            }
+
+            section.corners = corners;
+
             target.center += section.corners[0];
             target.center += section.corners[1];
 
@@ -286,7 +313,7 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
 
             imagePoints = std::vector<cv::Point2d>
             {
-                target.center,
+                //target.center,
                 target.sections[0].corners[0],
                 target.sections[0].corners[1],
                 target.sections[0].corners[2],
@@ -298,10 +325,17 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
             _logger->error("Incorrect number of target sections: {0}", target.sections.size());
             continue;
         }
-        
 
         cv::Mat rvec = cv::Mat::zeros(3, 1, CV_64FC1);     
         cv::Mat tvec = cv::Mat::zeros(3, 1, CV_64FC1);
+
+        tvec.at<double>(0,0) = 0;
+        tvec.at<double>(1,0) = 600;
+        tvec.at<double>(2,0) = 5000;
+
+        rvec.at<double>(0,0) = -0.3;
+        rvec.at<double>(1,0) = 0;
+        rvec.at<double>(2,0) = 0;
 
         if (keyPoints.size() <= 0 || imagePoints.size() <= 0)
         {
@@ -310,11 +344,12 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         }
 
         // Find transform
-        bool solved = cv::solvePnP(keyPoints, imagePoints, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), rvec, tvec, false, cv::SOLVEPNP_ITERATIVE);
+        bool solved = cv::solvePnP(keyPoints, imagePoints, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), rvec, tvec, true, cv::SOLVEPNP_AP3P);
 
         if (!solved)
         {
             _logger->debug("Failed to find target transform");  // TODO target id?
+            target.data.status = VisionStatus::ProcessingError;
             continue;
         }
 
@@ -353,22 +388,10 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         // Offset the target center to the true center of the target - the above solution is "centered" on the left-most point of the target (i.e. x = 0)
         cv::Point3d centerOffset(keyPoints[0].x, keyPoints[0].y, keyPoints[0].z);
 
-        // TODO Adjust offset when only half of the target is found
-        if (target.sections.size() == 1)
-        { 
-            if (target.sections[0].rect.angle < 90)
-            {
-                
-            }
-            else
-            {
-            }          
-        }
-
         target.data.status = VisionStatus::TargetFound;
-        target.data.x = tvec.at<double>(0,0) - centerOffset.x;
-        target.data.y = tvec.at<double>(1,0) - centerOffset.y;
-        target.data.z = tvec.at<double>(2,0) - centerOffset.z;
+        target.data.x = tvec.at<double>(0,0);// - centerOffset.x;   // TODO
+        target.data.y = tvec.at<double>(1,0);// - centerOffset.y;
+        target.data.z = tvec.at<double>(2,0) ;//- centerOffset.z;
         target.data.pitch = euler[0];
         target.data.yaw = euler[1];
         target.data.roll = euler[2];
@@ -436,6 +459,11 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
     cv::RNG rng(123);
     for (int target = 0; target < (int)targets.size(); ++target)
     {            
+        if (targets[target].data.status != VisionStatus::TargetFound)
+        {
+            continue;
+        }
+
         cv::Scalar color(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 
         // Project target points back onto image
@@ -456,21 +484,16 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         std::vector<cv::Point2d> projectedPoints;
         cv::projectPoints(_targetModel->GetSubTargetKeyPoints(0), rvec, tvec, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), projectedPoints);       
 
-        cv::circle(image, targets[target].center, 4, color, 1, cv::LINE_AA);
+        cv::circle(image, targets[target].center, 5, color, 1, cv::LINE_AA);
         for (auto& pt : targets[target].sections[0].corners)
         {
-            cv::circle(image, pt, 4, color, 1, cv::LINE_AA);
+            cv::circle(image, pt, 5, color, 1, cv::LINE_AA);
         }
 
         for (auto& pt : projectedPoints)
         {
-            //cv::circle(image, pt, 3, color, cv::FILLED, cv::LINE_AA);
+            cv::circle(image, pt, 3, color, cv::FILLED, cv::LINE_AA);
         }
-
-            cv::circle(image, projectedPoints[0], 3, color, cv::FILLED, cv::LINE_AA);
-            cv::circle(image, projectedPoints[2], 3, color, cv::FILLED, cv::LINE_AA);
-
-
 
         // Show target section bounding boxes
         for (auto section : targets[target].sections)
@@ -512,107 +535,6 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         for (int i = 0; i < (int)imageText.size(); ++i)
         {
             cv::putText(image, imageText[i], cv::Point(10,30 + target*200 + i*20), cv::FONT_HERSHEY_PLAIN, 1.0, color);
-        }
-    }
-}
-
-/* 
-
-Old corner detection using FAST - still works, but minarearect version seems to be more robust
-This has the advantage of finding true corners of the target and not relying on the subpixel finder to "narrow in" on the corners
-The corners from the minarearect version will be skewed when the camera is at an extreme perspective - the sublpixel finder handles this OK for now
-
-*/
-void TargetFinder::TargetSectionsFromContoursFast(const std::vector<std::vector<cv::Point>>& contours, std::vector<TargetSection>& sections, const cv::Size size)
-{
-    sections.clear();
-
-    // Evaluate each contour to see if it is a target section
-    for (int i = 0; i < (int)contours.size(); ++i)
-    {       
-        double area = cv::contourArea(contours[i], false);  
-        double perimeter = cv::arcLength(contours[i], true);
-
-        double shapeFactor = (4 * CV_PI * area) / std::pow(perimeter, 2);
-
-        if (shapeFactor > Setup::Processing::ShapeFactorMin && shapeFactor < Setup::Processing::ShapeFactorMax)
-        {
-            // Get bounding box and angle
-            auto rect = cv::minAreaRect(contours[i]);
-
-            std::vector<cv::Point2f> points(4);
-            rect.points(points.data());
-
-            if (rect.size.width < rect.size.height)
-            {
-                rect.angle += 180;
-            }
-            else
-            {
-                rect.angle += 90;
-            }
-
-            cv::Mat contourImage = cv::Mat::zeros(size, CV_8UC1);
-        
-            cv::drawContours( contourImage, contours, i, cv::Scalar(255), cv::FILLED, cv::LINE_AA);
-
-            //cv::GaussianBlur( contourImage, contourImage, cv::Size(3,3), 2);
-
-            // Adjust FAST algorithm parameters based on contour size which correlates to target distance
-            cv::FastFeatureDetector::DetectorType detectorType = cv::FastFeatureDetector::DetectorType::TYPE_9_16;
-
-            if (area < 200)
-            {
-                detectorType = cv::FastFeatureDetector::DetectorType::TYPE_7_12;
-            }
-
-            // Get corners
-
-            std::vector<cv::KeyPoint> keyPoints;
-            cv::FAST(contourImage, keyPoints, Setup::Processing::FastThreshold, false, detectorType);
-
-            // Combine close corner points - this seems to work better than non-max supression
-            std::vector<int> labels;
-            int numLabels = cv::partition(keyPoints, labels, [this](cv::KeyPoint p1, cv::KeyPoint p2){ return (Distance(p1.pt, p2.pt) < Setup::Processing::CornerDistanceThreshold); });
-
-            if (numLabels == 8) // TODO define number of corners?
-            {
-                std::vector<cv::Point2f> combinedPoints(numLabels);
-
-                cv::Point2f center(0, 0);
-
-                for (size_t i = 0; i < combinedPoints.size(); ++i)
-                {
-                    cv::Point2f newPoint;
-                    int count(0);
-
-                    for (size_t j = 0; j < keyPoints.size(); ++j)
-                    {
-                        if (labels[j] == i)
-                        {
-                            newPoint += keyPoints[j].pt;
-                            ++count;
-                        }
-                    }
-
-                    if (count <= 0)
-                    {
-                        break;
-                    }
-
-                    newPoint /= count;
-
-                    combinedPoints[i] = newPoint;
-
-                    center += newPoint;
-                }
-
-                center /= (int)combinedPoints.size();
-
-                TargetSection section { combinedPoints, rect, shapeFactor, center, area };
-
-                sections.push_back(section);
-            }
         }
     }
 }

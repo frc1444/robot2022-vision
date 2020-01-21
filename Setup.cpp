@@ -31,38 +31,34 @@ namespace Setup
         bool RecordProcessedVideo = false;
         std::string RecordVideoPath = "";
         bool ReadSetupFile = false;
-        int WaitKeyDelay = 10;
+        int WaitKeyDelay = 1;
     }
 
     namespace Processing
     {
-        int ContourSizeThreshold = 25;
-        double ContourApproximationAccuracy = 2.5;
+        int ContourSizeThreshold = 80;
+        double ContourApproximationAccuracy = 7.0;
         double ShapeFactorMin = 0.4;
         double ShapeFactorMax = 0.8;
-        int FastThreshold = 30;
         int CornerDistanceThreshold = 2;
-        double MinAngleDiff = 90;
-        double MaxAngleDiff = 180;
-        double TargetSeparationThreshold = 0.05;
         int MaxCornerSubPixelIterations = 100;
         double CornerSubPixelThreshold = 0.1;
-        bool UseWorldCoordinates = true;
-        double HatchOffset = 0;
-        double CargoOffset = 0;
+        bool UseWorldCoordinates = false;
+        double XOffset = 0;
+        double YOffset = 0;
+        double ZOffset = 0;
         double ImageEdgeThreshold = 10;
-        bool ProcessHalfTargets = false;
     }
 
     namespace HSVFilter
     {
         int LowH = 40;
-        int LowS = 30;
-        int LowV = 50;
-        int HighH = 100;
+        int LowS = 50;
+        int LowV = 30;
+        int HighH = 150;
         int HighS = 255;
         int HighV = 200;
-        int MorphologyIterations = 2;
+        int MorphologyIterations = 1;
     }
 
     void SaveSetup()
@@ -95,18 +91,14 @@ namespace Setup
             ini.SetDoubleValue("Processing", "ContourApproximationAccuracy", Processing::ContourApproximationAccuracy);
             ini.SetDoubleValue("Processing", "ShapeFactorMin", Processing::ShapeFactorMin);
             ini.SetDoubleValue("Processing", "ShapeFactorMax", Processing::ShapeFactorMax);
-            ini.SetLongValue("Processing", "FastThreshold", Processing::FastThreshold);
             ini.SetLongValue("Processing", "CornerDistanceThreshold", Processing::CornerDistanceThreshold);
-            ini.SetDoubleValue("Processing", "MinAngleDiff", Processing::MinAngleDiff);
-            ini.SetDoubleValue("Processing", "MaxAngleDiff", Processing::MaxAngleDiff);
-            ini.SetDoubleValue("Processing", "TargetSeparationThreshold", Processing::TargetSeparationThreshold);
             ini.SetLongValue("Processing", "MaxCornerSubPixelIterations", Processing::MaxCornerSubPixelIterations);
             ini.SetDoubleValue("Processing", "CornerSubPixelThreshold", Processing::CornerSubPixelThreshold);
             ini.SetBoolValue("Processing", "UseWorldCoordinates", Processing::UseWorldCoordinates);  
-            ini.SetDoubleValue("Processing", "HatchOffset", Processing::HatchOffset);
-            ini.SetDoubleValue("Processing", "CargoOffset", Processing::CargoOffset);
-            ini.SetDoubleValue("Processing", "ImageEdgeThreshold", Processing::ImageEdgeThreshold);
-            ini.SetBoolValue("Processing", "ProcessHalfTargets", Processing::ProcessHalfTargets);  
+            ini.SetDoubleValue("Processing", "XOffset", Processing::XOffset);
+            ini.SetDoubleValue("Processing", "YOffset", Processing::YOffset);
+            ini.SetDoubleValue("Processing", "ZOffset", Processing::ZOffset);
+            ini.SetDoubleValue("Processing", "ImageEdgeThreshold", Processing::ImageEdgeThreshold); 
 
             // HSVFilter
             ini.SetLongValue("HSVFilter", "LowH", HSVFilter::LowH);
@@ -157,18 +149,14 @@ namespace Setup
             Processing::ContourApproximationAccuracy = ini.GetDoubleValue("Processing", "ContourApproximationAccuracy", Processing::ContourApproximationAccuracy);
             Processing::ShapeFactorMin = ini.GetDoubleValue("Processing", "ShapeFactorMin", Processing::ShapeFactorMin);
             Processing::ShapeFactorMax = ini.GetDoubleValue("Processing", "ShapeFactorMax", Processing::ShapeFactorMax);
-            Processing::FastThreshold = ini.GetLongValue("Processing", "FastThreshold", Processing::FastThreshold);
             Processing::CornerDistanceThreshold = ini.GetLongValue("Processing", "CornerDistanceThreshold", Processing::CornerDistanceThreshold);
-            Processing::MinAngleDiff = ini.GetDoubleValue("Processing", "MinAngleDiff", Processing::MinAngleDiff);
-            Processing::MaxAngleDiff = ini.GetDoubleValue("Processing", "MaxAngleDiff", Processing::MaxAngleDiff);
-            Processing::TargetSeparationThreshold = ini.GetDoubleValue("Processing", "TargetSeparationThreshold", Processing::TargetSeparationThreshold);
             Processing::MaxCornerSubPixelIterations = ini.GetLongValue("Processing", "MaxCornerSubPixelIterations", Processing::MaxCornerSubPixelIterations);
             Processing::CornerSubPixelThreshold = ini.GetDoubleValue("Processing", "CornerSubPixelThreshold", Processing::CornerSubPixelThreshold);
             Processing::UseWorldCoordinates = ini.GetBoolValue("Processing", "UseWorldCoordinates", Processing::UseWorldCoordinates);
-            Processing::HatchOffset = ini.GetDoubleValue("Processing", "HatchOffset", Processing::HatchOffset);
-            Processing::CargoOffset = ini.GetDoubleValue("Processing", "CargoOffset", Processing::CargoOffset);
+            Processing::XOffset = ini.GetDoubleValue("Processing", "XOffset", Processing::XOffset);
+            Processing::YOffset = ini.GetDoubleValue("Processing", "YOffset", Processing::YOffset);
+            Processing::ZOffset = ini.GetDoubleValue("Processing", "ZOffset", Processing::ZOffset);
             Processing::ImageEdgeThreshold = ini.GetDoubleValue("Processing", "ImageEdgeThreshold", Processing::ImageEdgeThreshold);
-            Processing::ProcessHalfTargets = ini.GetBoolValue("Processing", "ProcessHalfTargets", Processing::ProcessHalfTargets);  
 
             // HSVFilter
             HSVFilter::LowH = ini.GetLongValue("HSVFilter", "LowH", HSVFilter::LowH);
