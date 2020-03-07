@@ -1,9 +1,12 @@
 [Unit]
 Description=2020 Infinite Recharge Vision Service
+After=network.target
+Before=network-online.target
 
 [Service]
-Type=oneshot
-ExecStart=/home/aaron/FIRST/robot2020-vision/camera_setup.sh
+Type=simple
+ExecStart=/home/pi/FRC2020/robot2020-vision/build/InfiniteRechargeVision
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
