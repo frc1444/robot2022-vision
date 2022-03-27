@@ -59,6 +59,8 @@ bool InfiniteRechargeProcessor::ProcessNextImage(std::vector<VisionData>& target
             return false;
         }
     }
+
+    return false;
 }
 
 void InfiniteRechargeProcessor::ShowDebugImages()

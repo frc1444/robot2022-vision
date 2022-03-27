@@ -20,13 +20,15 @@ find_library(ZeroMQ_LIBRARY
         PATHS ${PC_ZeroMQ_LIBRARY_DIRS}
         )
 
+find_package(cppzmq)
+
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/include)
 
 add_executable(InfiniteRechargeVision main.cpp Setup.cpp InfiniteRechargeTargetModel.cpp InfiniteRechargeVision.cpp InfiniteRechargeProcessor.cpp Target.cpp TargetFinder.cpp DataSender.cpp)
 
-target_link_libraries(InfiniteRechargeVision ${OpenCV_LIBS} pthread zmq)
+target_link_libraries(InfiniteRechargeVision ${OpenCV_LIBS} pthread cppzmq)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
