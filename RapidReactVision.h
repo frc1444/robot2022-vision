@@ -1,6 +1,6 @@
 #pragma once
 
-#include "InfiniteRechargeProcessor.h"
+#include "RapidReactProcessor.h"
 #include "DataSender.h"
 
 namespace cv
@@ -13,11 +13,11 @@ class VideoCapture;
 namespace Lightning
 {
 
-class InfiniteRechargeVision
+class RapidReactVision
 {
 public:
 
-    InfiniteRechargeVision(std::vector<spdlog::sink_ptr>);
+    RapidReactVision(std::vector<spdlog::sink_ptr>);
 
     bool IsProcessRunning() { return _isProcessorRunning; };
 
@@ -28,7 +28,7 @@ private:
 
     void Process();
 
-    std::unique_ptr<InfiniteRechargeProcessor> _targetProcessor;
+    std::unique_ptr<RapidReactProcessor> _targetProcessor;
 
     std::shared_ptr<cv::VideoCapture> _targetCapture;
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=2022 Infinite Recharge Vision Setup
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/FRC2022/robot2022-vision/camera_setup.sh
+
+[Install]
+WantedBy=multi-user.target

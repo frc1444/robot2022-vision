@@ -6,14 +6,14 @@
 #include "spdlog/sinks/ansicolor_sink.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
-#include "InfiniteRechargeVision.h"
+#include "RapidReactVision.h"
 #include "Setup.h"
 
 // Sigint Handler
 void sigint_handler(int signal);
 
 // Vision processor
-std::unique_ptr<Lightning::InfiniteRechargeVision> vision;
+std::unique_ptr<Lightning::RapidReactVision> vision;
 
 // Logger - create sinks here so they can be shared with main and processors
 std::vector<spdlog::sink_ptr> sinks {
@@ -36,7 +36,7 @@ int main(int, char**) {
     logger->set_level(Lightning::Setup::Diagnostics::LogLevel);
 
     // Vision Processors
-    vision = std::make_unique<Lightning::InfiniteRechargeVision>(sinks);
+    vision = std::make_unique<Lightning::RapidReactVision>(sinks);
     
     logger->debug("Starting DeepSpaceVision");
     if (!vision->StartProcessing())

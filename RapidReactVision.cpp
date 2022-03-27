@@ -1,17 +1,17 @@
 #include <opencv2/opencv.hpp>
 
-#include "InfiniteRechargeVision.h"
+#include "RapidReactVision.h"
 #include "Setup.h"
 #include "VisionData.hpp"
 #include "DataSender.h"
 
 using namespace Lightning;
 
-InfiniteRechargeVision::InfiniteRechargeVision(std::vector<spdlog::sink_ptr> sinks)
+RapidReactVision::RapidReactVision(std::vector<spdlog::sink_ptr> sinks)
     : _isProcessorRunning(false)
     , _doProcessing(false)
 {
-    _logger = std::make_shared<spdlog::logger>("InfiniteRechargeVision", sinks.begin(), sinks.end());
+    _logger = std::make_shared<spdlog::logger>("RapidReactVision", sinks.begin(), sinks.end());
     _logger->set_level(Lightning::Setup::Diagnostics::LogLevel);
 
     // Setup capture
@@ -47,7 +47,7 @@ InfiniteRechargeVision::InfiniteRechargeVision(std::vector<spdlog::sink_ptr> sin
             // TODO remove this
             cv::Vec3d offset(Setup::Processing::XOffset, Setup::Processing::YOffset, Setup::Processing::ZOffset);
 
-            _targetProcessor = std::make_unique<InfiniteRechargeProcessor>(sinks, "Main", _targetCapture, offset);  
+            _targetProcessor = std::make_unique<RapidReactProcessor>(sinks, "Main", _targetCapture, offset);  
         }
         else
         {           
@@ -62,17 +62,17 @@ InfiniteRechargeVision::InfiniteRechargeVision(std::vector<spdlog::sink_ptr> sin
     _dataSender = std::make_unique<DataSender>();
 }
 
-bool InfiniteRechargeVision::StartProcessing()
+bool RapidReactVision::StartProcessing()
 {
     if (_isProcessorRunning)
     {
-        _logger->info("InfiniteRechargeVision is already running.");
+        _logger->info("RapidReactVision is already running.");
         return false;
     }
 
     _doProcessing = true;
 
-    std::thread t(&InfiniteRechargeVision::Process, this);
+    std::thread t(&RapidReactVision::Process, this);
 
     if (t.joinable())
     {
@@ -84,12 +84,12 @@ bool InfiniteRechargeVision::StartProcessing()
     return false;
 }
 
-void InfiniteRechargeVision::StopProcessing()
+void RapidReactVision::StopProcessing()
 {
     _doProcessing = false;
 }
 
-void InfiniteRechargeVision::Process()
+void RapidReactVision::Process()
 {
     _logger->debug("Enter Process thread");
 

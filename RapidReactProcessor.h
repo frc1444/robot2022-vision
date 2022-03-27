@@ -15,10 +15,10 @@ class VideoCapture;
 namespace Lightning
 {
 
-class InfiniteRechargeProcessor
+class RapidReactProcessor
 {
 public:
-    InfiniteRechargeProcessor(std::vector<spdlog::sink_ptr>, std::string, std::shared_ptr<cv::VideoCapture>, cv::Vec3d);
+    RapidReactProcessor(std::vector<spdlog::sink_ptr>, std::string, std::shared_ptr<cv::VideoCapture>, cv::Vec3d);
 
     bool ProcessNextImage(std::vector<VisionData>&);
 

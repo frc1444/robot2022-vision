@@ -1,8 +1,8 @@
-#include "InfiniteRechargeTargetModel.h"
+#include "RapidReactTargetModel.h"
 
 using namespace Lightning;
 
-InfiniteRechargeTargetModel::InfiniteRechargeTargetModel() : TargetModel()
+RapidReactTargetModel::RapidReactTargetModel() : TargetModel()
 {
     _keyPoints = std::vector<cv::Point3d> {
         {498.475, 0, 0},
@@ -24,7 +24,7 @@ InfiniteRechargeTargetModel::InfiniteRechargeTargetModel() : TargetModel()
     };
 }
 
-std::vector<cv::Point3d> InfiniteRechargeTargetModel::GetSubTargetKeyPoints(int subTarget) const 
+std::vector<cv::Point3d> RapidReactTargetModel::GetSubTargetKeyPoints(int subTarget) const 
 {   
     // TODO this could be better - may require redesign of target model
 

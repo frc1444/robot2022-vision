@@ -6,11 +6,11 @@
 
 namespace Lightning
 {
-class InfiniteRechargeTargetModel : public TargetModel
+class RapidReactTargetModel : public TargetModel
 {
 public:
 
-    InfiniteRechargeTargetModel();
+    RapidReactTargetModel();
 
     virtual std::vector<cv::Point3d> GetSubTargetKeyPoints(int) const;
 };

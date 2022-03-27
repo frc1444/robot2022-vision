@@ -1,11 +1,11 @@
 [Unit]
-Description=2020 Infinite Recharge Vision Service
+Description=2022 Rapid React Vision Service
 After=network.target
 Before=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/home/pi/FRC2020/robot2020-vision/build/InfiniteRechargeVision
+ExecStart=/home/pi/FRC2022/robot2022-vision/build/RapidReactVision
 Restart=always
 
 [Install]

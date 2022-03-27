@@ -1,9 +1,0 @@
-[Unit]
-Description=2020 Infinite Recharge Vision Setup
-
-[Service]
-Type=oneshot
-ExecStart=/home/pi/FRC2020/robot2020-vision/camera_setup.sh
-
-[Install]
-WantedBy=multi-user.target

@@ -1,15 +1,15 @@
 #include <thread>
 
-#include "InfiniteRechargeProcessor.h"
-#include "InfiniteRechargeTargetModel.h"
+#include "RapidReactProcessor.h"
+#include "RapidReactTargetModel.h"
 #include "PS3Eye.h"
 #include "Setup.h"
 
 using namespace Lightning;
 
-InfiniteRechargeProcessor::InfiniteRechargeProcessor(std::vector<spdlog::sink_ptr> sinks, std::string name, std::shared_ptr<cv::VideoCapture> capture, cv::Vec3d offset)
+RapidReactProcessor::RapidReactProcessor(std::vector<spdlog::sink_ptr> sinks, std::string name, std::shared_ptr<cv::VideoCapture> capture, cv::Vec3d offset)
     : _capture(capture)
-    , _targetFinder(std::make_unique<TargetFinder>(sinks, name, std::make_unique<InfiniteRechargeTargetModel>(), std::make_unique<PS3EyeModel>(), offset))
+    , _targetFinder(std::make_unique<TargetFinder>(sinks, name, std::make_unique<RapidReactTargetModel>(), std::make_unique<PS3EyeModel>(), offset))
     , _name(name)
 {
     _logger = std::make_shared<spdlog::logger>(name, sinks.begin(), sinks.end());
@@ -27,7 +27,7 @@ InfiniteRechargeProcessor::InfiniteRechargeProcessor(std::vector<spdlog::sink_pt
     }
 }
 
-bool InfiniteRechargeProcessor::ProcessNextImage(std::vector<VisionData>& targetData)
+bool RapidReactProcessor::ProcessNextImage(std::vector<VisionData>& targetData)
 {
     if (_capture->isOpened())
     {
@@ -63,7 +63,7 @@ bool InfiniteRechargeProcessor::ProcessNextImage(std::vector<VisionData>& target
     return false;
 }
 
-void InfiniteRechargeProcessor::ShowDebugImages()
+void RapidReactProcessor::ShowDebugImages()
 {
     _targetFinder->ShowDebugImages();
 }
