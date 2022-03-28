@@ -46,6 +46,7 @@ bool TargetFinder::Process(cv::Mat& image, std::vector<VisionData>& data)
     std::vector<TargetSection> targetSections;
 
     TargetSectionsFromContours(approx, targetSections, cv::Size(image.cols, image.rows));
+    //TargetSectionsFromContours(contours, targetSections, cv::Size(image.cols, image.rows));
 
     // Create targets from sections
     std::vector<Target> targets;
@@ -76,6 +77,7 @@ bool TargetFinder::Process(cv::Mat& image, std::vector<VisionData>& data)
         _debugImages.clear();
         _debugImages.push_back(std::make_pair("Raw", image));
         _debugImages.push_back(std::make_pair("Contours", contourImage));
+        _debugImages.push_back(std::make_pair("Ranged", rangedImage));
     }
 
     return true;
@@ -124,7 +126,7 @@ bool TargetFinder::FindContours(const cv::Mat& image, std::vector<std::vector<cv
 
     if (contours.size() <= 0)
     {
-        _logger->debug("FindContours(): No contours found.");
+        _logger->debug("FindContours(): No contours found 1.");
         return false;
     }
 
@@ -164,6 +166,21 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
 {
     sections.clear();
 
+    double sum = 0.0;
+    double sqsum = 0.0;
+    for (int i = 0; i < (int)contours.size(); ++i)
+    {
+        auto rect = cv::minAreaRect(contours[i]);
+        sum += rect.size.area();
+        sqsum += std::pow(rect.size.area(), 2);
+    }
+
+    double averageArea = sum /= contours.size();
+    double stDev = std::sqrt( sqsum / contours.size() - std::pow(averageArea, 2));
+
+    _logger->trace("Average Contour Area {0}",averageArea);
+    _logger->trace("Contour Area StDev {0}",stDev);
+
     // Evaluate each contour to see if it is a target section
     for (int i = 0; i < (int)contours.size(); ++i)
     {       
@@ -186,6 +203,12 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
             // Get bounding box and angle
             auto rect = cv::minAreaRect(contours[i]);
 
+            if (rect.size.area() < (averageArea - 1.5 * stDev) || rect.size.area() > (averageArea +  1.5 * stDev))
+            {
+                _logger->trace("Area outlier {0} {1}", rect.size.area(), averageArea);
+                continue;
+            }
+
             // Reject contour if it is too close to the edge of the image
 
             double imageEdgeThreshold = Setup::Processing::ImageEdgeThreshold;
@@ -201,9 +224,19 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
             // Save corner points
             std::vector<cv::Point2f> points(4);
 
+            cv::Point2f rect_points[4];
+            rect.points(rect_points);
+
+            
             for (int j = 0; j < contours[i].size(); ++j)
             {
                 points[j] = cv::Point2f(contours[i][j].x, contours[i][j].y);
+            }
+            
+
+            for (int j = 0; j < 4; ++j)
+            {
+                //points[j] = rect_points[j];
             }
 
             if (rect.size.width < rect.size.height)
@@ -214,6 +247,7 @@ void TargetFinder::TargetSectionsFromContours(const std::vector<std::vector<cv::
             {
                 rect.angle += 90;
             }
+            
 
             TargetSection section { points, rect, shapeFactor, rect.center, area };
 
@@ -250,7 +284,7 @@ void TargetFinder::RefineTargetCorners(std::vector<Target>& targets, const cv::M
 
             try
             {
-                cv::cornerSubPix(image, section.corners, cv::Size(10,10), cv::Size(-1,-1), cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, Setup::Processing::MaxCornerSubPixelIterations, Setup::Processing::CornerSubPixelThreshold));
+                cv::cornerSubPix(image, section.corners, cv::Size(5,5), cv::Size(-1,-1), cv::TermCriteria(cv::TermCriteria::MAX_ITER | cv::TermCriteria::EPS, Setup::Processing::MaxCornerSubPixelIterations, Setup::Processing::CornerSubPixelThreshold));
             }
             catch (cv::Exception ex)
             {
@@ -401,6 +435,8 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         target.tvec = tvec;
 
         double theta = (180/ CV_PI) * atan2(target.data.x, target.data.z);
+        target.theta = theta;
+        /*
         if (target.data.x > 0)
         {
             target.theta = 180 - theta;
@@ -409,6 +445,7 @@ void TargetFinder::FindTargetTransforms(std::vector<Target>& targets, const cv::
         {
             target.theta = -(theta + 180);
         }
+        */
         target.robotDistance = (std::sqrt(std::pow(target.data.x, 2) + std::pow(target.data.z, 2)));
     }
 
@@ -442,7 +479,7 @@ cv::Vec3d TargetFinder::EulerAnglesFromRotationMaxtrix(const cv::Mat& R)
     {
         vec[0] = atan2(R.at<double>(2,1) , R.at<double>(2,2));  // x
         vec[1] = atan2(-R.at<double>(2,0), sy);                 // y
-        vec[2] = atan2(R.at<double>(1,0), R.at<double>(0,0));   // x
+        vec[2] = atan2(R.at<double>(1,0), R.at<double>(0,0));   // z
     }
     else
     {
@@ -456,7 +493,7 @@ cv::Vec3d TargetFinder::EulerAnglesFromRotationMaxtrix(const cv::Mat& R)
 
 void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& targets)
 {
-    cv::RNG rng(123);
+    cv::RNG rng(4343466);
     for (int target = 0; target < (int)targets.size(); ++target)
     {            
         if (targets[target].data.status != VisionStatus::TargetFound)
@@ -484,15 +521,16 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         std::vector<cv::Point2d> projectedPoints;
         cv::projectPoints(_targetModel->GetSubTargetKeyPoints(0), rvec, tvec, _cameraModel->GetCameraMatrix(), _cameraModel->GetDistanceCoefficients(), projectedPoints);       
 
-        cv::circle(image, targets[target].center, 5, color, 1, cv::LINE_AA);
+        //cv::circle(image, targets[target].center, 5, color, 1, cv::LINE_AA);
+        
         for (auto& pt : targets[target].sections[0].corners)
         {
-            cv::circle(image, pt, 5, color, 1, cv::LINE_AA);
-        }
-
+            //cv::circle(image, pt, 5, color, 1, cv::LINE_AA);
+        }        
+        
         for (auto& pt : projectedPoints)
         {
-            cv::circle(image, pt, 3, color, cv::FILLED, cv::LINE_AA);
+            cv::circle(image, pt, 1, color, cv::FILLED, cv::LINE_AA);
         }
 
         // Show target section bounding boxes
@@ -513,7 +551,7 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
 
             for( int j = 0; j < 4; j++ )
             {
-                ///cv::line( image, vertices[j], vertices[(j+1)%4], color, 1, cv::LINE_AA );
+                //cv::line( image, vertices[j], vertices[(j+1)%4], color, 1, cv::LINE_AA );
             }
         }
 
@@ -521,20 +559,20 @@ void TargetFinder::DrawDebugImage(cv::Mat& image, const std::vector<Target>& tar
         std::vector<std::string> imageText;   
 
         // TODO make this into a function?
-        imageText.push_back(fmt::format("X: {:03.1f}", targets[target].data.x / 25.4));
-        imageText.push_back(fmt::format("Y: {:03.1f}", targets[target].data.y / 25.4));
-        imageText.push_back(fmt::format("Z: {:03.1f}", targets[target].data.z / 25.4));
+        //imageText.push_back(fmt::format("X: {:03.1f}", targets[target].data.x / 25.4));
+        //imageText.push_back(fmt::format("Y: {:03.1f}", targets[target].data.y / 25.4));
+        //imageText.push_back(fmt::format("Z: {:03.1f}", targets[target].data.z / 25.4));
 
-        imageText.push_back(fmt::format("Roll: {:03.1f}", targets[target].data.roll));
-        imageText.push_back(fmt::format("Pitch: {:03.1f}", targets[target].data.pitch));
-        imageText.push_back(fmt::format("Yaw: {:03.1f}", targets[target].data.yaw));
+        //imageText.push_back(fmt::format("Roll: {:03.1f}", targets[target].data.roll));
+        //imageText.push_back(fmt::format("Pitch: {:03.1f}", targets[target].data.pitch));
+        //imageText.push_back(fmt::format("Yaw: {:03.1f}", targets[target].data.yaw));
 
         imageText.push_back(fmt::format("Theta: {:03.1f}", targets[target].theta));
         imageText.push_back(fmt::format("rDist: {:03.1f}", targets[target].robotDistance / 25.4));
 
         for (int i = 0; i < (int)imageText.size(); ++i)
         {
-            cv::putText(image, imageText[i], cv::Point(10,30 + target*200 + i*20), cv::FONT_HERSHEY_PLAIN, 1.0, color);
+            cv::putText(image, imageText[i], cv::Point(10,30 + target*50 + i*20), cv::FONT_HERSHEY_PLAIN, 1.0, color);
         }
     }
 }

@@ -5,6 +5,7 @@ using namespace Lightning;
 RapidReactTargetModel::RapidReactTargetModel() : TargetModel()
 {
     _keyPoints = std::vector<cv::Point3d> {
+        //{63.5, 25.4, 0},
         {0, 0, 0},
         {127, 0, 0},
         {0, 50.8, 0},
