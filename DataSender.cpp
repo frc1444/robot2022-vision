@@ -1,4 +1,5 @@
 #include <json.hpp>
+#include <fstream>
 
 #include "DataSender.h"
 #include "VisionData.hpp"
@@ -27,7 +28,6 @@ bool DataSender::Send(const std::vector<VisionMessage>& messages)
 
     zmq::message_t message(s.length());
     std::memcpy(message.data(), s.c_str(), s.length());
-
 
 // TODO
     _socket.send(message);
